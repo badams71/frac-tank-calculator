@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Frac Tank Gauge Calculator</title>
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:#f2f2f2;margin:0;color:#111}
+.wrap{max-width:760px;margin:auto;padding:14px 14px 40px}
+h1{font-size:24px;margin:10px 0 2px}
+.sub{font-size:14px;color:#555;margin-bottom:10px}
+.card{background:#fff;border-radius:16px;padding:14px;margin:12px 0;box-shadow:0 1px 8px rgba(0,0,0,.08)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kpis{display:grid;grid-template-columns:1fr;gap:10px}
+@media(min-width:650px){.kpis{grid-template-columns:1fr 1fr 1fr}}
+.kpi{border-radius:16px;padding:14px;text-align:center}
+.kpi .name{font-size:13px;font-weight:900;color:#444}
+.kpi .val{font-size:34px;font-weight:950;margin-top:4px}
+.total{background:#111;color:#fff}.total .name{color:#ddd}
+.oil{background:#e9f8ee}.water{background:#eaf4ff}
+label{display:block;font-weight:800;margin-top:10px;font-size:14px}
+input,textarea{width:100%;box-sizing:border-box;font-size:21px;padding:10px;border:1px solid #aaa;border-radius:10px;margin-top:4px}
+textarea{font-size:16px;min-height:60px}
+button{width:100%;font-size:20px;padding:13px;border:0;border-radius:12px;background:#111;color:#fff;font-weight:900;margin-top:12px}
+button.secondary{background:#ddd;color:#111}
+table{width:100%;border-collapse:collapse;font-size:15px}
+td{padding:8px 4px;border-bottom:1px solid #eee}
+td:last-child{text-align:right;font-weight:800}
+.small{font-size:14px;color:#555;line-height:1.4}
+.warn{color:#8a3c00;font-weight:900}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Frac Tank Gauge Calculator</h1>
+<div class="sub">Pinnacle AL470 / Side Stair Frac Tank — quarter-inch decimal inputs</div>
+
+<div class="kpis">
+  <div class="kpi total"><div class="name">TOTAL FLUID PRODUCTION</div><div class="val"><span id="totalProd">0.0</span> bbl</div></div>
+  <div class="kpi oil"><div class="name">OIL PRODUCTION</div><div class="val"><span id="oilProd">0.0</span> bbl</div></div>
+  <div class="kpi water"><div class="name">WATER PRODUCTION</div><div class="val"><span id="waterProd">0.0</span> bbl</div></div>
+</div>
+
+<div class="card">
+<label>Date</label><input id="date" type="date">
+<label>Notes</label><textarea id="notes" placeholder="Optional notes"></textarea>
+</div>
+
+<div class="card">
+<h3>Yesterday</h3>
+<div class="row">
+<div><label>Total feet</label><input id="ytf" inputmode="decimal" value="4"></div>
+<div><label>Total inches</label><input id="yti" inputmode="decimal" value="2.00"></div>
+</div>
+<div class="row">
+<div><label>Water feet</label><input id="ywf" inputmode="decimal" value="3"></div>
+<div><label>Water inches</label><input id="ywi" inputmode="decimal" value="10.00"></div>
+</div>
+</div>
+
+<div class="card">
+<h3>Today</h3>
+<div class="row">
+<div><label>Total feet</label><input id="ttf" inputmode="decimal" value="4"></div>
+<div><label>Total inches</label><input id="tti" inputmode="decimal" value="2.75"></div>
+</div>
+<div class="row">
+<div><label>Water feet</label><input id="twf" inputmode="decimal" value="3"></div>
+<div><label>Water inches</label><input id="twi" inputmode="decimal" value="10.00"></div>
+</div>
+<button type="button" onclick="calc()">Calculate</button>
+<button type="button" class="secondary" onclick="rollTomorrow()">Roll Today to Yesterday</button>
+</div>
+
+<div class="card" id="details"></div>
+<div class="card small">Use decimals for quarter-inch gauges: .25, .50, .75. The roll button moves today’s gauge into yesterday’s boxes and clears today’s boxes.</div>
+</div>
+
+<script>
+const chart=[0,10.1,13.1,17.1,21.3,25.6,29.9,34.2,38.5,42.7,47.0,51.3,55.6,59.9,64.1,68.4,72.7,77.0,81.3,85.5,89.8,94.1,98.4,102.7,106.9,111.2,115.5,119.8,124.0,128.3,132.6,136.9,141.3,145.8,150.2,154.6,159.1,163.5,167.9,172.4,176.8,181.3,185.7,190.3,194.9,199.5,204.1,208.7,213.3,217.9,222.5,227.2,231.8,236.4,241.0,245.6,250.2,254.8,259.4,264.0,268.6,273.2,277.8,282.4,287.0,291.6,296.2,300.8,305.3,309.9,314.4,319.0,323.5,327.9,332.3,336.7,341.1,345.5,349.9,354.3,358.7,363.1,367.5,371.9,376.3,380.7,385.0,389.4,393.8,398.2,402.6,405.9,409.1,412.4,415.7,418.9,422.2,425.4,428.7,431.9,435.8,439.6,443.4,447.3,451.1,454.9,458.8,462.6,466.4,470.2,474.1,477.9,481.7,485.6,489.4,493.2,497.1,500.9];
+function id(x){return document.getElementById(x)}
+function num(x){let v=parseFloat(String(id(x).value).replace(/[^\d.-]/g,''));return isNaN(v)?0:v}
+function inches(ft,inch){return num(ft)*12+num(inch)}
+function bbl(x){if(x<=0)return 0;if(x>=117)return chart[117];let lo=Math.floor(x),hi=Math.ceil(x);if(lo===hi)return chart[lo];return chart[lo]+(chart[hi]-chart[lo])*(x-lo)}
+function fmt(n){return (Math.round(n*10)/10).toFixed(1)}
+function today(){let d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10)}
+function calc(){
+  let yt=inches('ytf','yti'), yw=inches('ywf','ywi'), tt=inches('ttf','tti'), tw=inches('twf','twi');
+  let ytb=bbl(yt), ywb=bbl(yw), ttb=bbl(tt), twb=bbl(tw);
+  let yob=ytb-ywb, tob=ttb-twb;
+  let total=ttb-ytb, oil=tob-yob, water=twb-ywb;
+  id('totalProd').textContent=fmt(total); id('oilProd').textContent=fmt(oil); id('waterProd').textContent=fmt(water);
+  let warn=(yw>yt||tw>tt)?"<p class='warn'>Water cut is higher than total fluid. Recheck the gauge.</p>":"";
+  id('details').innerHTML=warn+`<table>
+    <tr><td>Today total in tank</td><td>${fmt(ttb)} bbl</td></tr>
+    <tr><td>Today oil in tank</td><td>${fmt(tob)} bbl</td></tr>
+    <tr><td>Today water in tank</td><td>${fmt(twb)} bbl</td></tr>
+    <tr><td>Yesterday total in tank</td><td>${fmt(ytb)} bbl</td></tr>
+    <tr><td>Yesterday oil in tank</td><td>${fmt(yob)} bbl</td></tr>
+    <tr><td>Yesterday water in tank</td><td>${fmt(ywb)} bbl</td></tr>
+    <tr><td>Current oil cut</td><td>${ttb?fmt(tob/ttb*100):'0.0'}%</td></tr>
+  </table>`;
+}
+function rollTomorrow(){
+  calc();
+  id('ytf').value=id('ttf').value;
+  id('yti').value=Number(num('tti')).toFixed(2);
+  id('ywf').value=id('twf').value;
+  id('ywi').value=Number(num('twi')).toFixed(2);
+  id('ttf').value='';
+  id('tti').value='';
+  id('twf').value='';
+  id('twi').value='';
+  id('date').value=today();
+  calc();
+}
+id('date').value=today();
+document.querySelectorAll('input,textarea').forEach(el=>el.addEventListener('input',calc));
+calc();
+</script>
+</body>
+</html>
